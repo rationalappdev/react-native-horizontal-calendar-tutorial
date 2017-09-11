@@ -8,6 +8,7 @@ import {
   View,
 } from 'react-native';
 import moment from 'moment';
+import Dates from './Dates';
 import type Moment from 'moment';
 
 type Props = {
@@ -87,7 +88,41 @@ export default class Calendar extends PureComponent {
       .map(_ => startDay.add(1, 'day').clone());
   };
 
+  onSelectDay = (index: number) => {
+    const { dates } = this.state;
+    const { onSelectDate } = this.props;
+    this.setState({ currentDateIndex: index });
+    onSelectDate(dates[index]);
+  };
+
+  onRenderDay = (index: number, width: number) => {
+    const { dayWidths } = this.state;
+    const {
+      showDaysBeforeCurrent,
+      showDaysAfterCurrent,
+    } = this.props;
+
+    // Check whether all date have been rendered already
+    const allDatesHaveRendered = dayWidths
+      && Object.keys(dayWidths).length >= showDaysBeforeCurrent + showDaysAfterCurrent;
+
+    this.setState(prevState => ({
+      allDatesHaveRendered,
+      dayWidths: {
+        // keep all existing widths added previously
+        ...prevState.dayWidths,
+        // keep the index for calculating scrolling position for each day
+        [index]: width,
+      },
+    }));
+  };
+
   render() {
+    const {
+      dates,
+      currentDateIndex,
+    } = this.state;
+
     return (
       <View>
         <Text style={styles.visibleMonthAndYear}>
@@ -99,7 +134,12 @@ export default class Calendar extends PureComponent {
           showsHorizontalScrollIndicator={false}    // Hide horizontal scroll indicators
           automaticallyAdjustContentInsets={false}  // Do not adjust content automatically
         >
-          <Text>{JSON.stringify(this.state.dates, null, 2)}</Text>
+          <Dates
+            dates={dates}
+            currentDateIndex={currentDateIndex}
+            onSelectDay={this.onSelectDay}
+            onRenderDay={this.onRenderDay}
+          />
         </ScrollView>
       </View>
     );
