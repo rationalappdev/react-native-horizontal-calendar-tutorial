@@ -202,10 +202,57 @@ export default class Calendar extends PureComponent {
     });
   };
 
+  scrollToCurrentDay = () => {
+    const {
+      allDatesHaveRendered,
+      currentDateIndex,
+      dayWidths,
+    } = this.state;
+
+    // Make sure we have all required values
+    if (!allDatesHaveRendered || currentDateIndex === undefined || currentDateIndex === null) {
+      return;
+    }
+
+    // Put all day width values into a simple array $FlowFixMe
+    const dayWidthsArray: Array<number> = Object.values(dayWidths);
+    // Total width all days take
+    const allDaysWidth = dayWidthsArray.reduce((total, width) => width + total, 0);
+    // Current day button width
+    const currentDayWidth = dayWidthsArray[currentDateIndex];
+    // Minimal possible X position value to prevent scrolling before the first day
+    const minX = 0;
+    // Maximum possible X position value to prevent scrolling after the last day
+    const maxX = allDaysWidth > screenWidth
+      ? allDaysWidth - screenWidth
+      : 0; // no scrolling if there's nowhere to scroll
+
+    let scrollToX;
+
+    scrollToX = dayWidthsArray
+      // get all days before the target one
+      .slice(0, currentDateIndex + 1)
+      // and calculate the total width
+      .reduce((total, width) => width + total, 0)
+      // Subtract half of the screen width so the target day is centered
+      - screenWidth / 2 - currentDayWidth / 2;
+
+    // Do not scroll over the left edge
+    if (scrollToX < minX) {
+      scrollToX = 0;
+    }
+    // Do not scroll over the right edge
+    else if (scrollToX > maxX) {
+      scrollToX = maxX;
+    }
+
+    this._scrollView.scrollTo({ x: scrollToX });
+  };
+
   onSelectDay = (index: number) => {
     const { dates } = this.state;
     const { onSelectDate } = this.props;
-    this.setState({ currentDateIndex: index });
+    this.setState({ currentDateIndex: index }, this.scrollToCurrentDay);
     onSelectDate(dates[index]);
   };
 
@@ -228,7 +275,12 @@ export default class Calendar extends PureComponent {
         // keep the index for calculating scrolling position for each day
         [index]: width,
       },
-    }));
+    }), () => {
+      if (allDatesHaveRendered) {
+        this.scrollToCurrentDay();
+        this.updateVisibleMonthAndYear();
+      }
+    });
   };
 
   onScroll = (event: { nativeEvent: { contentOffset: { x: number, y: number } } }) => {
