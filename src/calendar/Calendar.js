@@ -2,6 +2,7 @@
 
 import React, { PureComponent } from 'react';
 import {
+  Dimensions,
   ScrollView,
   StyleSheet,
   Text,
@@ -36,9 +37,15 @@ type State = {
   // Store each day with to help with scrolling to specific days
   // and calculating which days are visible on the screen
   dayWidths: ?{| [index: number]: number |},
-  // Store current
+  // Store current scroll position
   scrollPositionX: number,
 };
+
+const { width: screenWidth } = Dimensions.get('window');
+
+const formatMonth = (date: Moment): string => date.format('MMMM');
+
+const formatYear = (date: Moment): string => date.format('YYYY');
 
 export default class Calendar extends PureComponent {
 
@@ -88,6 +95,113 @@ export default class Calendar extends PureComponent {
       .map(_ => startDay.add(1, 'day').clone());
   };
 
+  // Returns a subset of dates currently visible on the screen
+  getVisibleDates = (): ?Array<Moment> => {
+
+    const {
+      dates,
+      dayWidths,
+      scrollPositionX,
+    } = this.state;
+
+    if (!dayWidths) {
+      return;
+    }
+
+    let datePositionX = 0;
+    let firstVisibleDateIndex = undefined;
+    let lastVisibleDateIndex = undefined;
+
+    // Iterate through `dayWidths` to  $FlowFixMe
+    Object.values(dayWidths).some((width: number, index: number) => {
+
+      if (firstVisibleDateIndex === undefined       // not set yet
+        && datePositionX >= scrollPositionX  // first date visible
+      ) {
+        firstVisibleDateIndex = index > 0 ? index - 1 : index;
+      }
+
+      if (lastVisibleDateIndex === undefined                      // not set yet
+        && datePositionX >= scrollPositionX + screenWidth  // first date not visible behind the right edge
+      ) {
+        lastVisibleDateIndex = index;
+      }
+
+      // Increment date position by its width for the next iteration
+      datePositionX += width;
+
+      // return true when both first and last visible days found to break out of loop
+      return !!(firstVisibleDateIndex && lastVisibleDateIndex);
+    });
+
+    // Return a subset of visible dates only
+    return dates.slice(firstVisibleDateIndex, lastVisibleDateIndex);
+  };
+
+  // Format as a string the month(s) and the year(s) of the dates currently visible
+  getVisibleMonthAndYear = (): ?string => {
+    const {
+      dates,
+      visibleMonths,
+      visibleYears,
+    } = this.state;
+
+    // No `visibleMonths` or `visibleYears` yet
+    if (!visibleMonths || !visibleYears) {
+      // Return the month and the year of the very first date
+      if (dates) {
+        const firstDate = dates[0];
+        return `${formatMonth(firstDate)}, ${formatYear(firstDate)}`;
+      }
+      return undefined;
+    }
+
+    // One or two months withing the same year
+    if (visibleYears.length === 1) {
+      return `${visibleMonths.join(' – ')},  ${visibleYears[0]}`;
+    }
+
+    // Two months within different years
+    return visibleMonths
+      .map((month, index) => `${month}, ${visibleYears[index]}`)
+      .join(' – ');
+  };
+
+  // Update visible month(s) and year(s) of the dates currently visible on the screen
+  updateVisibleMonthAndYear = () => {
+
+    const { allDatesHaveRendered } = this.state;
+
+    if (!allDatesHaveRendered) {
+      return;
+    }
+
+    const visibleDates = this.getVisibleDates();
+
+    if (!visibleDates) {
+      return;
+    }
+
+    let visibleMonths = [];
+    let visibleYears = [];
+
+    visibleDates.forEach((date: Moment) => {
+      const month = formatMonth(date);
+      const year = formatYear(date);
+      if (!visibleMonths.includes(month)) {
+        visibleMonths.push(month);
+      }
+      if (!visibleYears.includes(year)) {
+        visibleYears.push(year);
+      }
+    });
+
+    this.setState({
+      visibleMonths,
+      visibleYears,
+    });
+  };
+
   onSelectDay = (index: number) => {
     const { dates } = this.state;
     const { onSelectDate } = this.props;
@@ -117,22 +231,30 @@ export default class Calendar extends PureComponent {
     }));
   };
 
+  onScroll = (event: { nativeEvent: { contentOffset: { x: number, y: number } } }) => {
+    const { nativeEvent: { contentOffset: { x } } } = event;
+    this.setState({ scrollPositionX: x }, this.updateVisibleMonthAndYear);
+  };
+
   render() {
     const {
       dates,
       currentDateIndex,
     } = this.state;
+    const visibleMonthAndYear = this.getVisibleMonthAndYear();
 
     return (
       <View>
         <Text style={styles.visibleMonthAndYear}>
-          November, 2020 // random month and year for now
+          {visibleMonthAndYear}
         </Text>
         <ScrollView
           ref={scrollView => { this._scrollView = scrollView; }}
           horizontal={true}                         // Enable horizontal scrolling
           showsHorizontalScrollIndicator={false}    // Hide horizontal scroll indicators
           automaticallyAdjustContentInsets={false}  // Do not adjust content automatically
+          scrollEventThrottle={100}
+          onScroll={this.onScroll}
         >
           <Dates
             dates={dates}
