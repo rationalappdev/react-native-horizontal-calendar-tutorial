@@ -19,7 +19,7 @@ export default class App extends React.Component {
     return (
       <View style={styles.container}>
         <StatusBar hidden={true} />
-        <Calendar onSelectDate={this.onSelectDate} />
+        <Calendar showDaysAfterCurrent={30} onSelectDate={this.onSelectDate} />
       </View>
     );
   }
