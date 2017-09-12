@@ -10,4 +10,4 @@ Read the full tutorial here http://rationalappdev.com/rhorizontal-calendar-in-re
 
 ## Demo
 
-<img src="https://github.com/rationalappdev/react-native-horizontal-calendar/blob/master/demo.png" alt="Demo" width="640" />
+<img src="https://github.com/rationalappdev/react-native-horizontal-calendar/blob/master/demo.jpg" alt="Demo" width="640" />
